@@ -1,0 +1,251 @@
+.page-home {
+  width: 100%;
+}
+
+.page-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #ececec;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #777777;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.page-hero h1 {
+  margin: 0;
+  color: #111111;
+  font-size: 28px;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+
+.page-description {
+  margin: 8px 0 0;
+  max-width: 520px;
+  color: #666666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.refresh-button {
+  min-height: 38px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid #d9d9d9;
+  background: #111111;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.refresh-button:hover {
+  background: #000000;
+  border-color: #000000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.refresh-button:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.refresh-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
+}
+
+.tabs::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tabs::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 999px;
+}
+
+.tab {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
+  color: #333333;
+  font-weight: 650;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.tab:hover {
+  background: #f2f2f2;
+  border-color: #bdbdbd;
+  color: #111111;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.tab.active {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.tab-content {
+  animation: fade-in 180ms ease;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid #ececec;
+  background: #ffffff;
+  color: #666666;
+  font-size: 14px;
+}
+
+.loading-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #111111;
+  animation: pulse 900ms ease-in-out infinite;
+}
+
+.order-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.order-item {
+  background: transparent;
+}
+
+.order-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.detail-link {
+  margin-left: auto;
+  min-height: 36px;
+  color: #111111;
+  font-weight: 650;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.detail-link:hover {
+  background: #f2f2f2;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+}
+
+@media (max-width: 640px) {
+  .page-hero {
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .refresh-button {
+    width: 100%;
+  }
+
+  .page-hero h1 {
+    font-size: 24px;
+  }
+
+  .detail-link {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 900px) {
+  .order-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .order-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

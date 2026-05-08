@@ -1,0 +1,24 @@
+.app-footer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid #ececec;
+  background: rgba(255, 255, 255, 0.94);
+  justify-content: space-around;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.app-footer .action {
+  flex: 1;
+  max-width: 160px;
+}
+
+@media (min-width: 768px) {
+  .app-footer {
+    padding: 12px 18px;
+  }
+}
