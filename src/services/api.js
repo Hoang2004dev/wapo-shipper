@@ -76,21 +76,21 @@ export function normalizeStatus(status) {
 
 export function formatStatus(status) {
   switch (normalizeStatus(status)) {
-    case "pendingpayment":    return "Chờ thanh toán";
-    case "processing":        return "Chờ lấy hàng";
-    case "shipping":          return "Đang giao";
-    case "delivered":         return "Đã giao";
-    case "completed":         return "Hoàn thành";
-    case "cancelled":         return "Đã hủy";
-    case "refunding":         return "Yêu cầu hoàn";
-    case "refunded":          return "Đã hoàn tiền";
-    case "refundapproved":    return "Duyệt hoàn";
-    case "returnapproved":    return "Chờ lấy hàng hoàn";
-    case "returnpickedup":    return "Đã lấy hàng hoàn";
-    case "returnshipping":    return "Đang vận chuyển hoàn";
-    case "returndelivered":   return "Đã giao lại seller";
-    case "returncompleted":   return "Hoàn tất trả hàng";
-    default:                  return status || "Không rõ";
+    case "pendingpayment":    return "Pending Payment";
+    case "processing":        return "Processing"; 
+    case "shipping":          return "In Transit"; 
+    case "delivered":         return "Delivered";
+    case "completed":         return "Completed";
+    case "cancelled":         return "Cancelled";
+    case "refunding":         return "Refund Requested";
+    case "refunded":          return "Refunded";
+    case "refundapproved":    return "Refund Approved";
+    case "returnapproved":    return "Awaiting Return Pickup";
+    case "returnpickedup":    return "Return Item Picked Up";
+    case "returnshipping":    return "Return In Transit";
+    case "returndelivered":   return "Returned to Seller";
+    case "returncompleted":   return "Return Completed";
+    default:                  return status || "Unknown";
   }
 }
 
