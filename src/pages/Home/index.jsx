@@ -5,292 +5,325 @@ import React, {
   useRef,
   useState,
 } from "react";
-import "./module.scss";
+import { useSearchParams } from "react-router-dom";
+import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 
 import {
   fetchProcessingOrders,
   fetchShippingOrders,
   fetchDeliveredOrders,
+  fetchReturnApprovedOrders,
+  fetchReturnPickedUpOrders,
+  fetchReturnShippingOrders,
   normalizeStatus,
 } from "../../services/api";
 
 import OrderCard from "../../components/OrderCard";
-import { useSearchParams } from "react-router-dom";
-
-import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
+import "./module.scss";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5196";
 
+// ─── Tab config ───────────────────────────────────────────────
 const TABS = [
   {
     key: "processing",
-    label: "Ready to ship",
+    label: "To Pick Up",
+    icon: "",
     fetcher: fetchProcessingOrders,
+    matchStatuses: ["processing"],
+    description: "Paid orders, waiting for shipper pickup",
+    accentColor: "#1d4ed8",
+    accentBg: "#dbeafe",
   },
   {
     key: "shipping",
-    label: "In transit",
+    label: "Shipping",
+    icon: "",
     fetcher: fetchShippingOrders,
+    matchStatuses: ["shipping"],
+    description: "Orders on the way to the customer",
+    accentColor: "#92400e",
+    accentBg: "#fff3cd",
   },
   {
     key: "delivered",
     label: "Delivered",
+    icon: "",
     fetcher: fetchDeliveredOrders,
+    matchStatuses: ["delivered"],
+    description: "Successfully delivered orders, awaiting confirmation",
+    accentColor: "#6d28d9",
+    accentBg: "#ede9fe",
+  },
+  // ─── Return flow ───────────────────────────────────────────
+  {
+    key: "return_approved",
+    label: "To Pick Up Return",
+    icon: "",
+    fetcher: fetchReturnApprovedOrders,
+    matchStatuses: ["returnapproved"],
+    description: "Return approved, waiting to pick up from customer",
+    accentColor: "#9d174d",
+    accentBg: "#fce7f3",
+    isReturn: true,
+  },
+  {
+    key: "return_picked_up",
+    label: "Picking Up Return",
+    icon: "",
+    fetcher: fetchReturnPickedUpOrders,
+    matchStatuses: ["returnpickedup"],
+    description: "Return package picked up, in transit back",
+    accentColor: "#7e22ce",
+    accentBg: "#fdf4ff",
+    isReturn: true,
+  },
+  {
+    key: "return_shipping",
+    label: "Returning",
+    icon: "",
+    fetcher: fetchReturnShippingOrders,
+    matchStatuses: ["returnshipping"],
+    description: "Return package on the way back to the seller",
+    accentColor: "#581c87",
+    accentBg: "#f5f3ff",
+    isReturn: true,
   },
 ];
 
-const TAB_STATUS_MAP = {
-  processing: ["processing"],
-  shipping: ["shipping"],
-  delivered: ["delivered"],
-};
-
+const TAB_STORAGE_KEY = "wfs_active_tab";
 const DEFAULT_TAB = "processing";
-const TAB_STORAGE_KEY = "orderDashboardActiveTab";
 
-function getValidTab(tabKey) {
-  const found = TABS.some((tab) => tab.key === tabKey);
-  return found ? tabKey : DEFAULT_TAB;
+function getValidTab(key) {
+  return TABS.some((t) => t.key === key) ? key : DEFAULT_TAB;
 }
 
-function getInitialTabFromStorage() {
-  const savedTab = localStorage.getItem(TAB_STORAGE_KEY);
-  return getValidTab(savedTab);
-}
-
-function getTabTitle(tabKey) {
-  const tab = TABS.find((item) => item.key === tabKey);
-  return tab?.label || "Orders";
+function getInitialTab() {
+  return getValidTab(localStorage.getItem(TAB_STORAGE_KEY));
 }
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const initialTab = useMemo(() => {
-    const tabFromUrl = searchParams.get("tab");
-
-    if (tabFromUrl) {
-      return getValidTab(tabFromUrl);
-    }
-
-    return getInitialTabFromStorage();
-  }, [searchParams]);
+    const fromUrl = searchParams.get("tab");
+    return fromUrl ? getValidTab(fromUrl) : getInitialTab();
+  }, []); // eslint-disable-line
 
   const [active, setActive] = useState(initialTab);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [actionError, setActionError] = useState("");
+  const [error, setError] = useState("");
 
   const activeRef = useRef(active);
-  const connectionRef = useRef(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     activeRef.current = active;
     localStorage.setItem(TAB_STORAGE_KEY, active);
-
-    setSearchParams(
-      {
-        tab: active,
-      },
-      {
-        replace: true,
-      },
-    );
+    setSearchParams({ tab: active }, { replace: true });
   }, [active, setSearchParams]);
 
   useEffect(() => {
     mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
 
-  const loadOrders = useCallback(
-    async (tabKey = active) => {
-      const tab = TABS.find((item) => item.key === tabKey);
+  const loadOrders = useCallback(async (tabKey = active) => {
+    const tab = TABS.find((t) => t.key === tabKey);
+    if (!tab) return;
 
-      if (!tab) {
-        return;
-      }
+    setLoading(true);
+    setError("");
 
-      setLoading(true);
-      setActionError("");
-
-      try {
-        const data = await tab.fetcher();
-
-        if (!mountedRef.current) {
-          return;
-        }
-
-        setOrders(Array.isArray(data) ? data : []);
-      } catch (error) {
-        if (!mountedRef.current) {
-          return;
-        }
-
-        setActionError(error.message || "Unable to load orders.");
-        setOrders([]);
-      } finally {
-        if (mountedRef.current) {
-          setLoading(false);
-        }
-      }
-    },
-    [active],
-  );
+    try {
+      const data = await tab.fetcher();
+      if (!mountedRef.current) return;
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (err) {
+      if (!mountedRef.current) return;
+      setError(err.message || "Failed to load orders.");
+      setOrders([]);
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  }, [active]);
 
   useEffect(() => {
     loadOrders(active);
-  }, [active, loadOrders]);
+  }, [active]); // eslint-disable-line
 
+  // SignalR realtime
   useEffect(() => {
     const token =
       localStorage.getItem("token") ||
       localStorage.getItem("accessToken") ||
-      sessionStorage.getItem("token") ||
-      sessionStorage.getItem("accessToken");
+      "";
 
     const connection = new HubConnectionBuilder()
       .withUrl(`${API_BASE}/orderHub`, {
         accessTokenFactory: () =>
           localStorage.getItem("token") ||
           localStorage.getItem("accessToken") ||
-          sessionStorage.getItem("token") ||
-          sessionStorage.getItem("accessToken") ||
-          token ||
-          "",
+          token || "",
       })
-      .configureLogging(LogLevel.Information)
+      .configureLogging(LogLevel.Warning)
       .withAutomaticReconnect()
       .build();
 
-    connectionRef.current = connection;
-
     connection.start().catch(() => {});
 
-    connection.on("ReceiveNewOrder", (updatedOrder) => {
+    connection.on("ReceiveNewOrder", (updated) => {
+      const currentTab = TABS.find((t) => t.key === activeRef.current);
+      if (!currentTab) return;
+
+      const statusKey = normalizeStatus(updated.status);
+      const isMatch = currentTab.matchStatuses.includes(statusKey);
+      const updatedId = String(updated.orderId || updated.id);
+
       setOrders((prev) => {
-        const currentTab = activeRef.current;
-        const statusKey = normalizeStatus(updatedOrder.status);
-        const expectedStatuses = TAB_STATUS_MAP[currentTab] || [];
-        const isMatching = expectedStatuses.includes(statusKey);
+        const exists = prev.some((o) => String(o.orderId || o.id) === updatedId);
 
-        const updatedOrderId = updatedOrder.orderId || updatedOrder.id;
-
-        const exists = prev.some(
-          (order) =>
-            String(order.orderId || order.id) === String(updatedOrderId),
-        );
-
-        if (isMatching) {
+        if (isMatch) {
           if (exists) {
-            return prev.map((order) =>
-              String(order.orderId || order.id) === String(updatedOrderId)
-                ? updatedOrder
-                : order,
+            return prev.map((o) =>
+              String(o.orderId || o.id) === updatedId ? updated : o
             );
           }
-
-          return [updatedOrder, ...prev];
+          return [updated, ...prev];
         }
 
-        return prev.filter(
-          (order) =>
-            String(order.orderId || order.id) !== String(updatedOrderId),
-        );
+        return prev.filter((o) => String(o.orderId || o.id) !== updatedId);
       });
     });
 
     return () => {
       connection.off("ReceiveNewOrder");
       connection.stop().catch(() => {});
-      connectionRef.current = null;
     };
   }, []);
-
-  function handleTabChange(tabKey) {
-    if (tabKey === active) {
-      return;
-    }
-
-    setActive(tabKey);
-  }
-
-  async function handleRefresh() {
-    await loadOrders(activeRef.current);
-  }
 
   const handleOrderChanged = useCallback(async () => {
     await loadOrders(activeRef.current);
   }, [loadOrders]);
 
-  const activeTitle = getTabTitle(active);
+  const activeTab = TABS.find((t) => t.key === active);
+  const normalTabs = TABS.filter((t) => !t.isReturn);
+  const returnTabs = TABS.filter((t) => t.isReturn);
 
   return (
     <div className="page-home">
-      <section className="page-hero">
-        <div>
-          <p className="eyebrow">Order management</p>
-          <h1>{activeTitle}</h1>
-          <p className="page-description">
-            Track orders in real time and update delivery progress from one
-            simple dashboard.
-          </p>
+      {/* ── Hero ── */}
+      <section className="page-hero" style={{ "--accent": activeTab?.accentColor, "--accent-bg": activeTab?.accentBg }}>
+        <div className="hero-text">
+          <span className="eyebrow">Wapo Fashion Shipper</span>
+          <h1 className="hero-title">
+            {activeTab?.icon && <span className="hero-icon">{activeTab?.icon}</span>}
+            {activeTab?.label}
+          </h1>
+          <p className="hero-desc">{activeTab?.description}</p>
         </div>
 
-        <button
-          className="refresh-button"
-          onClick={handleRefresh}
-          type="button"
-          disabled={loading}
-        >
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
+        <div className="hero-actions">
+          <div className="order-count-chip">
+            <span className="count-num">{orders.length}</span>
+            <span className="count-label">{orders.length === 1 ? "order" : "orders"}</span>
+          </div>
+          <button
+            className="refresh-btn"
+            onClick={() => loadOrders(activeRef.current)}
+            disabled={loading}
+            type="button"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M1 4v6h6M23 20v-6h-6"/>
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
+            </svg>
+            {loading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
       </section>
 
-      <div className="tabs" role="tablist" aria-label="Order status tabs">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            className={`tab ${tab.key === active ? "active" : ""}`}
-            onClick={() => handleTabChange(tab.key)}
-            type="button"
-            role="tab"
-            aria-selected={tab.key === active}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* ── Tabs ── */}
+      <div className="tabs-wrapper">
+        {/* Normal delivery tabs */}
+        <div className="tabs-group">
+          <span className="tabs-group-label">Delivery</span>
+          <div className="tabs" role="tablist">
+            {normalTabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={`tab ${tab.key === active ? "active" : ""}`}
+                onClick={() => setActive(tab.key)}
+                type="button"
+                role="tab"
+                aria-selected={tab.key === active}
+                style={tab.key === active ? { "--tab-accent": tab.accentColor, "--tab-accent-bg": tab.accentBg } : {}}
+              >
+                {tab.icon && <span className="tab-icon">{tab.icon}</span>}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Return tabs */}
+        <div className="tabs-group">
+          <span className="tabs-group-label return-label">Returns</span>
+          <div className="tabs" role="tablist">
+            {returnTabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={`tab return-tab ${tab.key === active ? "active" : ""}`}
+                onClick={() => setActive(tab.key)}
+                type="button"
+                role="tab"
+                aria-selected={tab.key === active}
+                style={tab.key === active ? { "--tab-accent": tab.accentColor, "--tab-accent-bg": tab.accentBg } : {}}
+              >
+                {tab.icon && <span className="tab-icon">{tab.icon}</span>}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="tab-content" data-active={active}>
-        {actionError && <p className="error">{actionError}</p>}
+      {/* ── Content ── */}
+      <div className="tab-content">
+        {error && (
+          <div className="error-banner">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {error}
+          </div>
+        )}
 
         {loading && (
           <div className="loading-state">
-            <div className="loading-dot" />
+            <div className="spinner" />
             <span>Loading orders...</span>
           </div>
         )}
 
-        {!loading && orders.length === 0 && (
-          <p className="empty">No orders found in this status.</p>
+        {!loading && orders.length === 0 && !error && (
+          <div className="empty-state">
+            {activeTab?.icon && <div className="empty-icon">{activeTab?.icon}</div>}
+            <div className="empty-title">No orders found</div>
+            <div className="empty-desc">There are currently no orders in this status</div>
+          </div>
         )}
 
         {!loading && orders.length > 0 && (
           <div className="order-grid">
-            {orders.map((order) => {
-              const orderId = order.orderId || order.id;
-
-              return (
-                <div key={orderId} className="order-item">
-                  <OrderCard order={order} onChanged={handleOrderChanged} />
-                </div>
-              );
-            })}
+            {orders.map((order) => (
+              <OrderCard
+                key={order.orderId || order.id}
+                order={order}
+                onChanged={handleOrderChanged}
+              />
+            ))}
           </div>
         )}
       </div>

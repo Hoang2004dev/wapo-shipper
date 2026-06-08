@@ -1,160 +1,183 @@
 import React, { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import useOrdersStore from "../../store/useOrdersStore";
-import api, { formatStatus, normalizeStatus } from "../../services/api";
+import api, { formatStatus, normalizeStatus, statusColor } from "../../services/api";
 import "./module.scss";
 
-function statusColor(status) {
-  const key = normalizeStatus(status);
-
-  switch (key) {
-    case "pendingpayment":
-      return "#9AA0A6";
-    case "processing":
-      return "#4285F4";
-    case "shipping":
-      return "#FF8A00";
-    case "delivered":
-      return "#8E24AA";
-    case "completed":
-    case "done":
-      return "#00C853";
-    case "cancelled":
-    case "refunded":
-      return "#E53935";
-    case "refunding":
-      return "#F9AB00";
-    default:
-      return "#9AA0A6";
-  }
-}
-
 function formatVietnamTime(value) {
-  if (!value) {
-    return "";
-  }
-
+  if (!value) return "";
   const raw = value.toString().trim();
   const hasTimezone = raw.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(raw);
   const utcValue = hasTimezone ? raw : `${raw}Z`;
   const date = new Date(utcValue);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toLocaleTimeString("vi-VN", {
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-US", {
     timeZone: "Asia/Ho_Chi_Minh",
     hour: "2-digit",
     minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
   });
+}
+
+/**
+ * Returns the list of actions that the shipper is allowed to perform
+ * according to the flow in UpdateOrderStatusByShipperAsync
+ */
+function getShipperActions(statusKey) {
+  switch (statusKey) {
+    // ── Delivery flow ──────────────────────────────────────────
+    case "processing":
+      return [
+        {
+          label: "Confirm pickup",
+          icon: "",
+          targetStatus: "SHIPPING",
+          variant: "primary",
+          tooltip: "Picked up from seller, delivery started",
+        },
+      ];
+
+    case "shipping":
+      return [
+        {
+          label: "Delivered",
+          icon: "",
+          targetStatus: "DELIVERED",
+          variant: "success",
+          tooltip: "Confirmed successful delivery to customer",
+        },
+      ];
+
+    // ── Return flow ────────────────────────────────────────────
+    case "returnapproved":
+      return [
+        {
+          label: "Picked up return",
+          icon: "",
+          targetStatus: "RETURN_PICKED_UP",
+          variant: "return",
+          tooltip: "Confirmed return package picked up from customer",
+        },
+      ];
+
+    case "returnpickedup":
+      return [
+        {
+          label: "Returning package",
+          icon: "",
+          targetStatus: "RETURN_SHIPPING",
+          variant: "return",
+          tooltip: "Return package is on the way back to the seller",
+        },
+      ];
+
+    case "returnshipping":
+      return [
+        {
+          label: "Returned to seller",
+          icon: "",
+          targetStatus: "RETURN_DELIVERED",
+          variant: "return-done",
+          tooltip: "Confirmed return package delivered back to the seller",
+        },
+      ];
+
+    default:
+      return [];
+  }
 }
 
 export default function OrderCard({ order, onChanged }) {
   const navigate = useNavigate();
-
-  const updateOrder = useOrdersStore((state) => state.updateOrder);
   const [loading, setLoading] = useState(false);
+  const [localStatus, setLocalStatus] = useState(order.status);
 
   const id = order.orderId || order.id;
-  const name =
-    order.receiverName || order.buyerName || order.customer?.name || "Customer";
-  const address = order.shippingAddress || order.customer?.address || "";
-  const status = (order.status || "").toString();
-  const statusKey = normalizeStatus(status);
-  const time = order.updatedAt || order.createdAt || new Date().toISOString();
+  const name = order.receiverName || order.buyerName || "Customer";
+  const address = order.shippingAddress || "";
+  const statusKey = normalizeStatus(localStatus);
+  const colors = statusColor(localStatus);
+  const time = order.updatedAt || order.createdAt;
 
-  const doChangeStatus = useCallback(
-    async (targetStatus) => {
-      if (loading) {
-        return;
-      }
+  const doChangeStatus = useCallback(async (targetStatus) => {
+    if (loading) return;
+    setLoading(true);
 
-      setLoading(true);
+    const prevStatus = localStatus;
+    setLocalStatus(targetStatus); // optimistic
 
-      const oldStatus = order.status;
-
-      updateOrder(id, {
-        status: targetStatus,
-      });
-
-      try {
-        if (targetStatus === "SHIPPING" || targetStatus === "DELIVERED") {
-          await api.shipperUpdateOrderStatus(id, targetStatus);
-        } else {
-          await api.updateOrderStatus(id, targetStatus);
-        }
-
-        if (onChanged) {
-          await onChanged();
-        }
-      } catch (_) {
-        updateOrder(id, {
-          status: oldStatus,
-        });
-      } finally {
-        setLoading(false);
-      }
-    },
-    [id, loading, order.status, updateOrder, onChanged],
-  );
+    try {
+      await api.shipperUpdateOrderStatus(id, targetStatus);
+      if (onChanged) await onChanged();
+    } catch (err) {
+      setLocalStatus(prevStatus); // rollback
+      alert(err.message || "Failed to update status.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, loading, localStatus, onChanged]);
 
   const handleDetails = useCallback(() => {
     navigate(`/orders/${id}`);
   }, [navigate, id]);
 
-  return (
-    <div className="order-card">
-      <div>
-        <div className="name">{name}</div>
-        <div className="address">{address}</div>
-      </div>
+  const actions = getShipperActions(statusKey);
+  const isReturnFlow = statusKey.startsWith("return");
 
-      <div className="meta">
+  return (
+    <div className={`order-card ${isReturnFlow ? "return-card" : ""}`}>
+      {/* ── Return indicator ── */}
+      {isReturnFlow && (
+        <div className="return-ribbon">Return order</div>
+      )}
+
+      {/* ── Header ── */}
+      <div className="card-header">
+        <div className="card-id">#{id}</div>
         <div
           className="status-badge"
-          style={{
-            background: statusColor(status),
-            color: "#fff",
-          }}
+          style={{ background: colors.bg, color: colors.text }}
         >
-          {formatStatus(status)}
+          {formatStatus(localStatus)}
         </div>
+      </div>
 
-        <div className="time">{formatVietnamTime(time)}</div>
+      {/* ── Receiver info ── */}
+      <div className="card-body">
+        <div className="receiver-name">{name}</div>
+        {address && <div className="receiver-address">{address}</div>}
+        {order.receiverPhone && (
+          <a className="receiver-phone" href={`tel:${order.receiverPhone}`}>
+            {order.receiverPhone}
+          </a>
+        )}
+      </div>
 
-        <div
-          style={{
-            marginTop: 8,
-            display: "flex",
-            gap: 8,
-            justifyContent: "flex-end",
-          }}
-        >
-          {statusKey === "processing" ? (
+      {/* ── Footer ── */}
+      <div className="card-footer">
+        <div className="card-time">{formatVietnamTime(time)}</div>
+
+        <div className="card-actions">
+          {actions.map((action) => (
             <button
-              className="action"
-              onClick={() => doChangeStatus("SHIPPING")}
+              key={action.targetStatus}
+              className={`action-btn ${action.variant}`}
+              onClick={() => doChangeStatus(action.targetStatus)}
               disabled={loading}
               type="button"
+              title={action.tooltip}
             >
-              {loading ? "Updating..." : "Pick up"}
+              {action.icon && <span>{action.icon}</span>}
+              {loading ? "Processing..." : action.label}
             </button>
-          ) : null}
+          ))}
 
-          {statusKey === "shipping" ? (
-            <button
-              className="action"
-              onClick={() => doChangeStatus("DELIVERED")}
-              disabled={loading}
-              type="button"
-            >
-              {loading ? "Updating..." : "Complete"}
-            </button>
-          ) : null}
-
-          <button className="action primary" onClick={handleDetails} type="button">
+          <button
+            className="action-btn outline"
+            onClick={handleDetails}
+            type="button"
+          >
             Details
           </button>
         </div>

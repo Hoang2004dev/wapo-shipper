@@ -1,3 +1,4 @@
+// src\components\Footer\index.jsx
 import React from "react";
 import "./module.scss";
 
