@@ -1,11 +1,9 @@
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "https://fashionwebbe.onrender.com";
 
-const ADMIN_EMAIL =
-  import.meta.env.VITE_ADMIN_EMAIL || "admin@fashion.com";
+const ADMIN_EMAIL = "admin@fashion.com";
 
-const ADMIN_PASSWORD =
-  import.meta.env.VITE_ADMIN_PASSWORD || "Aa@123";
+const ADMIN_PASSWORD = "Aa@123";
 
 function saveToken(token) {
   if (!token) return;
