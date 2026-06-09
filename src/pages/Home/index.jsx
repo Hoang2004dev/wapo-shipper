@@ -21,7 +21,7 @@ import {
 import OrderCard from "../../components/OrderCard";
 import "./module.scss";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5196";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://fashionwebbe.onrender.com";
 
 // ─── Tab config ───────────────────────────────────────────────
 const TABS = [
