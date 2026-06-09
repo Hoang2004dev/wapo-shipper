@@ -165,16 +165,13 @@ export async function autoLoginAdmin() {
   const existingToken = getSavedToken();
 
   if (existingToken) {
-    if (existingToken === "undefined" || existingToken === "null") {
-      console.warn(`[AUTH] Detected corrupted token "${existingToken}" in Storage. Clearing and re-authenticating.`);
-      clearAdminToken();
-    } else {
-      console.log("[AUTH] Valid existing token found. Skipping Login API call.");
-      return existingToken;
-    }
+    console.log("[AUTH] Force login active. Discarding old token from Storage to fetch a fresh one.");
+    clearAdminToken();
+  } else {
+    console.log("[AUTH] No existing token found.");
   }
 
-  console.log("[AUTH] No existing token or corrupted token found. Proceeding to invoke loginAdmin().");
+  console.log("[AUTH] Proceeding to invoke loginAdmin() for a brand new token.");
   return loginAdmin();
 }
 
